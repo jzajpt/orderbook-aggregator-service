@@ -2,42 +2,36 @@ use futures::sink::SinkExt;
 use futures::stream::StreamExt;
 use rust_decimal::Decimal;
 use serde::{Deserialize};
+use tokio::sync::mpsc::Sender;
 use websocket_lite::{Message, Opcode, Result};
+
+use crate::order_book::{AsksVec, BidsVec, Orderbook, OrderbookEntry};
 
 const URL: &str = "wss://stream.binance.com:9443/ws/";
 
 #[derive(Deserialize, Debug)]
-struct DiffUpdateEventPayload {
-    #[serde(rename = "e")]
-    event: String,
-    #[serde(rename = "E")]
-    time: i64,
-    #[serde(rename = "s")]
-    symbol: String,
-    #[serde(rename = "u")]
-    first_update_id: i64,
-    #[serde(rename = "U")]
-    final_update_id: i64,
-    #[serde(rename = "b")]
-    bids: Vec<(Decimal, Decimal)>,
-    #[serde(rename = "a")]
-    asks: Vec<(Decimal, Decimal)>,
-}
-
-#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct PartialBookEventPayload {
+struct PartialBookEvent {
     last_update_id: i64,
     bids: Vec<(Decimal, Decimal)>,
     asks: Vec<(Decimal, Decimal)>,
 }
 
+impl From<PartialBookEvent> for Orderbook {
+    fn from(partial_book_event: PartialBookEvent) -> Self {
+        let asks: Vec<OrderbookEntry> = partial_book_event.asks.into_iter().map(OrderbookEntry::from).collect();
+        let bids: Vec<OrderbookEntry> = partial_book_event.bids.into_iter().map(OrderbookEntry::from).collect();
+        Orderbook {
+            asks: AsksVec::from(asks),
+            bids: BidsVec::from(bids),
+        }
+    }
+}
 
-pub async fn run(pair: &str) -> Result<()> {
+pub async fn run(pair: &str, tx: Sender<Orderbook>) -> Result<()> {
     let url = format!("{}{}@depth10@100ms", URL, pair);
     let builder = websocket_lite::ClientBuilder::new(&url)?;
     let mut ws_stream = builder.async_connect().await?;
-    let update_id: i64 = 0;
 
     loop {
         let msg: Option<Result<Message>> = ws_stream.next().await;
@@ -50,7 +44,6 @@ pub async fn run(pair: &str) -> Result<()> {
                 break Ok(());
             }
             None => {
-                println!("received none message; breaking");
                 break Err(String::from("Stream terminated").into());
             }
         };
@@ -58,9 +51,10 @@ pub async fn run(pair: &str) -> Result<()> {
         match msg.opcode() {
             Opcode::Text => {
                 let response =msg.as_text().unwrap();
-                let update: PartialBookEventPayload = serde_json::from_str(response)?;
-
-                println!("{:?}", update);
+                let update: PartialBookEvent = serde_json::from_str(response)?;
+                let orderbook = Orderbook::from(update);
+                println!("sending tx binance");
+                tx.send(orderbook).await.unwrap();
             }
             Opcode::Binary => { },
             Opcode::Ping => ws_stream.send(Message::pong(msg.into_data())).await?,

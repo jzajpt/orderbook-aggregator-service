@@ -5,7 +5,10 @@ use futures::stream::StreamExt;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_aux::prelude::*;
+use tokio::sync::mpsc::Sender;
 use websocket_lite::{Message, Opcode, Result};
+
+use crate::order_book::{AsksVec, BidsVec, Orderbook, OrderbookEntry};
 
 const URL: &str = "wss://ws.bitstamp.net";
 
@@ -17,6 +20,17 @@ struct LiveOrderbookEvent {
     microtimestamp: u64,
     asks: Vec<(Decimal, Decimal)>,
     bids: Vec<(Decimal, Decimal)>,
+}
+
+impl From<LiveOrderbookEvent> for Orderbook {
+    fn from(orderbook_event: LiveOrderbookEvent) -> Self {
+        let asks: Vec<OrderbookEntry> = orderbook_event.asks.into_iter().map(OrderbookEntry::from).collect();
+        let bids: Vec<OrderbookEntry> = orderbook_event.bids.into_iter().map(OrderbookEntry::from).collect();
+        Orderbook {
+            asks: AsksVec::from(asks),
+            bids: BidsVec::from(bids),
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -33,7 +47,7 @@ struct Event {
     data: EventData,
 }
 
-pub async fn run(pair: &str) -> Result<()> {
+pub async fn run(pair: &str, tx: Sender<Orderbook>) -> Result<()> {
     let builder = websocket_lite::ClientBuilder::new(URL)?;
     let mut ws_stream = builder.async_connect().await?;
 
@@ -41,7 +55,6 @@ pub async fn run(pair: &str) -> Result<()> {
         r#"{{"event":"bts:subscribe","data":{{"channel":"order_book_{}"}}}}"#,
         pair
     );
-    println!("{}", subscribe_msg);
     ws_stream.send(Message::text(subscribe_msg)).await;
 
     loop {
@@ -55,7 +68,6 @@ pub async fn run(pair: &str) -> Result<()> {
                 break Ok(());
             }
             None => {
-                println!("received none message; breaking");
                 break Err(String::from("Stream terminated").into());
             }
         };
@@ -63,9 +75,15 @@ pub async fn run(pair: &str) -> Result<()> {
         match msg.opcode() {
             Opcode::Text => {
                 let response = msg.as_text().unwrap();
-                println!("{:?}", response);
                 let event: Event = serde_json::from_str(response)?;
-                println!("{:?}", event);
+                match event.data {
+                    EventData::LiveOrderbook(orderbook_data) => {
+                        let orderbook = Orderbook::from(orderbook_data);
+                        println!("sending tx bitstamp");
+                        tx.send(orderbook).await.unwrap();
+                    },
+                    _ => {}
+                 }
             }
             Opcode::Binary => {
                 println!("binary");

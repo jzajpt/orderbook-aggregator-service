@@ -2,10 +2,10 @@ use rust_decimal::Decimal;
 use std::cmp::Ordering;
 use sorted_vec::{SortedVec, ReverseSortedVec};
 use rust_decimal::prelude::*;
+use futures::prelude::stream::FuturesOrdered;
 
-
-type AsksVec = SortedVec<OrderbookEntry>;
-type BidsVec = ReverseSortedVec<OrderbookEntry>;
+pub type AsksVec = SortedVec<OrderbookEntry>;
+pub type BidsVec = ReverseSortedVec<OrderbookEntry>;
 
 #[derive(Debug)]
 pub struct Orderbook {
@@ -26,6 +26,12 @@ impl Orderbook {
 pub struct OrderbookEntry {
     pub price: Decimal,
     pub size: Decimal,
+}
+
+impl From<(Decimal, Decimal)> for OrderbookEntry {
+    fn from(tuple: (Decimal, Decimal)) -> Self {
+        OrderbookEntry { price: tuple.0, size: tuple.1 }
+    }
 }
 
 impl PartialOrd for OrderbookEntry {
