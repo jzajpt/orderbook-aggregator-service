@@ -8,10 +8,13 @@ use serde_aux::prelude::*;
 use tokio::sync::mpsc::Sender;
 use websocket_lite::{Message, Opcode, Result};
 
-use crate::order_book::{AsksVec, BidsVec, Orderbook, OrderbookEntry};
+use crate::order_book::{
+    AsksVec, BidsVec, Exchange, Orderbook, OrderbookEntry, OrderbookUpdateEvent
+};
 
 const URL: &str = "wss://ws.bitstamp.net";
 
+/// Orderbook representation coming from Bitstamp websocket.
 #[derive(Deserialize, Debug)]
 struct LiveOrderbookEvent {
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -23,9 +26,17 @@ struct LiveOrderbookEvent {
 }
 
 impl From<LiveOrderbookEvent> for Orderbook {
+    /// Create new `Orderbook` from `LiveOrderbookEvent`
     fn from(orderbook_event: LiveOrderbookEvent) -> Self {
-        let asks: Vec<OrderbookEntry> = orderbook_event.asks.into_iter().map(OrderbookEntry::from).collect();
-        let bids: Vec<OrderbookEntry> = orderbook_event.bids.into_iter().map(OrderbookEntry::from).collect();
+        let orderbook_entry_from = move |e| OrderbookEntry::from_exchange(Exchange::Binance, e);
+        let asks: Vec<OrderbookEntry> = orderbook_event.asks
+            .into_iter()
+            .map(orderbook_entry_from)
+            .collect();
+        let bids: Vec<OrderbookEntry> = orderbook_event.bids
+            .into_iter()
+            .map(orderbook_entry_from)
+            .collect();
         Orderbook {
             asks: AsksVec::from(asks),
             bids: BidsVec::from(bids),
@@ -33,6 +44,7 @@ impl From<LiveOrderbookEvent> for Orderbook {
     }
 }
 
+/// Enum representing possible `data` structure in `Event`
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 enum EventData {
@@ -40,6 +52,7 @@ enum EventData {
     Empty {}
 }
 
+/// General event structure that Bitstamp sends.
 #[derive(Deserialize, Debug)]
 struct Event {
     event: String,
@@ -47,7 +60,8 @@ struct Event {
     data: EventData,
 }
 
-pub async fn run(pair: &str, tx: Sender<Orderbook>) -> Result<()> {
+/// Run the Bitstamp websocket client.
+pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
     let builder = websocket_lite::ClientBuilder::new(URL)?;
     let mut ws_stream = builder.async_connect().await?;
 
@@ -55,7 +69,7 @@ pub async fn run(pair: &str, tx: Sender<Orderbook>) -> Result<()> {
         r#"{{"event":"bts:subscribe","data":{{"channel":"order_book_{}"}}}}"#,
         pair
     );
-    ws_stream.send(Message::text(subscribe_msg)).await;
+    ws_stream.send(Message::text(subscribe_msg)).await?;
 
     loop {
         let msg: Option<Result<Message>> = ws_stream.next().await;
@@ -79,21 +93,21 @@ pub async fn run(pair: &str, tx: Sender<Orderbook>) -> Result<()> {
                 match event.data {
                     EventData::LiveOrderbook(orderbook_data) => {
                         let orderbook = Orderbook::from(orderbook_data);
-                        println!("sending tx bitstamp");
-                        tx.send(orderbook).await.unwrap();
+                        let update_event = OrderbookUpdateEvent::new(
+                            Exchange::Bitstamp, orderbook
+                        );
+                        tx.send(update_event).await;
                     },
                     _ => {}
                  }
             }
-            Opcode::Binary => {
-                println!("binary");
-            },
             Opcode::Ping => ws_stream.send(Message::pong(msg.into_data())).await?,
             Opcode::Close => {
                 println!("closed");
                 let _ = ws_stream.send(Message::close(None)).await;
                 break Ok(());
             }
+            Opcode::Binary => {},
             Opcode::Pong => {}
         }
     }

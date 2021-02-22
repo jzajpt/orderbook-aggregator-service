@@ -5,10 +5,13 @@ use serde::{Deserialize};
 use tokio::sync::mpsc::Sender;
 use websocket_lite::{Message, Opcode, Result};
 
-use crate::order_book::{AsksVec, BidsVec, Orderbook, OrderbookEntry};
+use crate::order_book::{
+    AsksVec, BidsVec, Exchange, Orderbook, OrderbookEntry, OrderbookUpdateEvent
+};
 
 const URL: &str = "wss://stream.binance.com:9443/ws/";
 
+/// Partial orderbook representation coming from Binance websocket.
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct PartialBookEvent {
@@ -18,9 +21,18 @@ struct PartialBookEvent {
 }
 
 impl From<PartialBookEvent> for Orderbook {
+    /// Create new `Orderbook` from `PartialBookEvent`
     fn from(partial_book_event: PartialBookEvent) -> Self {
-        let asks: Vec<OrderbookEntry> = partial_book_event.asks.into_iter().map(OrderbookEntry::from).collect();
-        let bids: Vec<OrderbookEntry> = partial_book_event.bids.into_iter().map(OrderbookEntry::from).collect();
+        let orderbook_entry_from = move |e| OrderbookEntry::from_exchange(Exchange::Bitstamp, e);
+        let mut asks: Vec<OrderbookEntry> = partial_book_event.asks
+            .into_iter()
+            .map(orderbook_entry_from)
+            .collect();
+        let mut bids: Vec<OrderbookEntry> = partial_book_event.bids
+            .into_iter()
+            .map(orderbook_entry_from)
+            .collect::<Vec<OrderbookEntry>>();
+
         Orderbook {
             asks: AsksVec::from(asks),
             bids: BidsVec::from(bids),
@@ -28,7 +40,8 @@ impl From<PartialBookEvent> for Orderbook {
     }
 }
 
-pub async fn run(pair: &str, tx: Sender<Orderbook>) -> Result<()> {
+/// Run the Binance websocket client.
+pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
     let url = format!("{}{}@depth10@100ms", URL, pair);
     let builder = websocket_lite::ClientBuilder::new(&url)?;
     let mut ws_stream = builder.async_connect().await?;
@@ -53,15 +66,17 @@ pub async fn run(pair: &str, tx: Sender<Orderbook>) -> Result<()> {
                 let response =msg.as_text().unwrap();
                 let update: PartialBookEvent = serde_json::from_str(response)?;
                 let orderbook = Orderbook::from(update);
-                println!("sending tx binance");
-                tx.send(orderbook).await.unwrap();
+                let update_event = OrderbookUpdateEvent::new(
+                    Exchange::Binance, orderbook
+                );
+                tx.send(update_event).await;
             }
-            Opcode::Binary => { },
             Opcode::Ping => ws_stream.send(Message::pong(msg.into_data())).await?,
             Opcode::Close => {
                 let _ = ws_stream.send(Message::close(None)).await;
                 break Ok(());
             }
+            Opcode::Binary => {},
             Opcode::Pong => {}
         }
     }

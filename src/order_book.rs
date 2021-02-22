@@ -1,12 +1,19 @@
 use rust_decimal::Decimal;
 use std::cmp::Ordering;
 use sorted_vec::{SortedVec, ReverseSortedVec};
-use rust_decimal::prelude::*;
-use futures::prelude::stream::FuturesOrdered;
 
 pub type AsksVec = SortedVec<OrderbookEntry>;
 pub type BidsVec = ReverseSortedVec<OrderbookEntry>;
 
+/// Supported exchanges.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Exchange {
+    Unknown,
+    Binance,
+    Bitstamp,
+}
+
+/// Simple orderbook composed of bids and asks.
 #[derive(Debug)]
 pub struct Orderbook {
     pub asks: AsksVec,
@@ -20,17 +27,35 @@ impl Orderbook {
             bids: ReverseSortedVec::new()
         }
     }
+
+    pub fn from_bids_asks(bids: Vec<OrderbookEntry>, asks: Vec<OrderbookEntry>) -> Self {
+        Self { bids: BidsVec::from(bids), asks: AsksVec::from(asks) }
+    }
 }
 
+/// Simple orderbook entry.
 #[derive(Debug, Eq, Clone, Copy)]
 pub struct OrderbookEntry {
     pub price: Decimal,
     pub size: Decimal,
+    pub exchange: Exchange,
+}
+
+
+impl OrderbookEntry {
+    pub fn new(price: Decimal, size: Decimal, exchange: Exchange) -> Self {
+        Self { price, size, exchange }
+
+    }
+
+    pub fn from_exchange(exchange: Exchange, tuple: (Decimal, Decimal)) -> Self {
+        OrderbookEntry { price: tuple.0, size: tuple.1, exchange }
+    }
 }
 
 impl From<(Decimal, Decimal)> for OrderbookEntry {
     fn from(tuple: (Decimal, Decimal)) -> Self {
-        OrderbookEntry { price: tuple.0, size: tuple.1 }
+        OrderbookEntry { price: tuple.0, size: tuple.1, exchange: Exchange::Unknown }
     }
 }
 
@@ -52,48 +77,43 @@ impl PartialEq for OrderbookEntry {
     }
 }
 
+#[derive(Debug)]
+pub struct OrderbookUpdateEvent {
+    pub exchange: Exchange,
+    pub orderbook: Orderbook,
+}
+
+impl OrderbookUpdateEvent {
+    pub fn new(exchange: Exchange, orderbook: Orderbook) -> Self {
+        Self { exchange, orderbook }
+    }
+}
 
 #[cfg(test)]
 mod tests {
+    use rust_decimal_macros::*;
+
     use super::*;
 
     #[test]
     fn asks_are_sorted() {
         let asks = vec![
-            OrderbookEntry {
-                price: Decimal::from_f64(1.2).unwrap(),
-                size: Decimal::from_f64(1.0).unwrap()
-            },
-            OrderbookEntry {
-                price: Decimal::from_f64(1.1).unwrap(),
-                size: Decimal::from_f64(1.0).unwrap()
-            },
-            OrderbookEntry {
-                price: Decimal::from_f64(1.0).unwrap(),
-                size: Decimal::from_f64(1.0).unwrap()
-            },
+            OrderbookEntry::new(dec!(1.2), dec!(1.0), Exchange::Unknown),
+            OrderbookEntry::new(dec!(1.1), dec!(1.0), Exchange::Unknown),
+            OrderbookEntry::new(dec!(0.9), dec!(1.0), Exchange::Unknown),
         ];
         let asks = AsksVec::from(asks);
-        assert_eq!(asks.first().unwrap().price, Decimal::from_f32(1.0).unwrap());
+        assert_eq!(asks.first().unwrap().price, dec!(0.9));
     }
 
     #[test]
     fn bids_are_sorted() {
         let bids = vec![
-            OrderbookEntry {
-                price: Decimal::from_f64(1.1).unwrap(),
-                size: Decimal::from_f64(1.0).unwrap()
-            },
-            OrderbookEntry {
-                price: Decimal::from_f64(1.2).unwrap(),
-                size: Decimal::from_f64(1.0).unwrap()
-            },
-            OrderbookEntry {
-                price: Decimal::from_f64(1.3).unwrap(),
-                size: Decimal::from_f64(1.0).unwrap()
-            },
+            OrderbookEntry::new(dec!(1.1), dec!(1.0), Exchange::Unknown),
+            OrderbookEntry::new(dec!(1.2), dec!(1.0), Exchange::Unknown),
+            OrderbookEntry::new(dec!(0.8), dec!(1.0), Exchange::Unknown),
         ];
         let bids = BidsVec::from(bids);
-        assert_eq!(bids.first().unwrap().price, Decimal::from_f32(1.3).unwrap());
+        assert_eq!(bids.first().unwrap().price, dec!(1.2));
     }
 }

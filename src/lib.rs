@@ -1,6 +1,7 @@
 pub mod bitstamp;
 pub mod binance;
 pub mod order_book;
+pub mod aggregator;
 
 /// Error returned by most functions.
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
