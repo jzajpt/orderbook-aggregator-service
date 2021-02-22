@@ -36,3 +36,11 @@ Bitstamp websocket API offers live order book endpoint which is streaming top
 - [ ] CTRL+C graceful handling
 - [ ] gRPC interface - server
 - [ ] gRPC client
+
+
+# Approach
+
+I've chosen to implement the challenge using `tokio` async runtime with following 
+crates:
+
+* websocket_lite

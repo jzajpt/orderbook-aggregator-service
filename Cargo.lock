@@ -463,28 +463,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd25036021b0de88a0aff6b850051563c6516d0bf53f8638938edbb9de732736"
 
 [[package]]
-name = "keyrock-challenge"
-version = "0.1.0"
-dependencies = [
- "dotenv",
- "futures",
- "futures-core",
- "partial_application",
- "prost",
- "rust_decimal",
- "rust_decimal_macros",
- "serde",
- "serde-aux",
- "serde_json",
- "sorted-vec",
- "structopt",
- "tokio",
- "tonic",
- "tonic-build",
- "websocket-lite",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -648,6 +626,32 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "orderbook-aggregator"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "dotenv",
+ "futures",
+ "futures-core",
+ "partial_application",
+ "prost",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "serde-aux",
+ "serde_json",
+ "sorted-vec",
+ "structopt",
+ "strum",
+ "strum_macros",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tonic-build",
+ "websocket-lite",
 ]
 
 [[package]]
@@ -1122,6 +1126,24 @@ checksum = "5ba9cdfda491b814720b6b06e0cac513d922fc407582032e8706e9f137976f90"
 dependencies = [
  "heck",
  "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "strum"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7318c509b5ba57f18533982607f24070a55d353e90d4cae30c467cdb2ad5ac5c"
+
+[[package]]
+name = "strum_macros"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee8bc6b87a5112aeeab1f4a9f7ab634fe6cbefc4850006df31267f4cfb9e3149"
+dependencies = [
+ "heck",
  "proc-macro2",
  "quote",
  "syn",

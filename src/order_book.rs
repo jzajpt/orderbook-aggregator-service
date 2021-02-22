@@ -1,12 +1,17 @@
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal_macros::*;
+use std::str::FromStr;
+use strum_macros::ToString;
 use std::cmp::Ordering;
 use sorted_vec::{SortedVec, ReverseSortedVec};
+
 
 pub type AsksVec = SortedVec<OrderbookEntry>;
 pub type BidsVec = ReverseSortedVec<OrderbookEntry>;
 
 /// Supported exchanges.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, ToString)]
 pub enum Exchange {
     Unknown,
     Binance,
@@ -14,7 +19,7 @@ pub enum Exchange {
 }
 
 /// Simple orderbook composed of bids and asks.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Orderbook {
     pub asks: AsksVec,
     pub bids: BidsVec,
@@ -30,6 +35,20 @@ impl Orderbook {
 
     pub fn from_bids_asks(bids: Vec<OrderbookEntry>, asks: Vec<OrderbookEntry>) -> Self {
         Self { bids: BidsVec::from(bids), asks: AsksVec::from(asks) }
+    }
+
+    pub fn spread(&self) -> Option<f64> {
+        let spread = self.top_bid().unwrap_or(dec!(0.0)) -
+            self.top_ask().unwrap_or(dec!(0.0));
+        spread.to_f64()
+    }
+
+    pub fn top_bid(&self) -> crate::Result<Decimal> {
+        Ok(self.bids.first().unwrap().price)
+    }
+
+    pub fn top_ask(&self) -> crate::Result<Decimal> {
+        Ok(self.asks.first().unwrap().price)
     }
 }
 
@@ -91,8 +110,6 @@ impl OrderbookUpdateEvent {
 
 #[cfg(test)]
 mod tests {
-    use rust_decimal_macros::*;
-
     use super::*;
 
     #[test]

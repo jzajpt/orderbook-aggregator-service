@@ -7,6 +7,7 @@ use crate::order_book::{
 const LIMIT: usize = 10;
 
 /// Aggregates n orderbooks
+#[derive(Debug)]
 pub struct Aggregator {
     pub orderbooks: HashMap<Exchange, Orderbook>,
 }
@@ -37,6 +38,12 @@ impl Aggregator {
             .take(LIMIT)
             .collect();
         Orderbook::from_bids_asks(all_bids, all_asks)
+    }
+}
+
+impl Default for Aggregator {
+    fn default() -> Self {
+        Aggregator::new()
     }
 }
 
