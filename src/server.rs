@@ -1,19 +1,16 @@
-use tokio::sync::{mpsc, watch};
-use tonic::{transport::Server, Request, Response, Status};
 use futures_core::Stream;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
+use tokio::sync::{mpsc, watch};
+use tonic::{transport::Server, Request, Response, Status};
 
-use orderbook_aggregator::{bitstamp, binance, aggregator::Aggregator};
-use orderbook_aggregator::order_book::{Orderbook, OrderbookUpdateEvent};
-use proto::orderbook_aggregator_server::{OrderbookAggregator, OrderbookAggregatorServer};
-use proto::{Empty, Level, Summary};
+use orderbook_aggregator::order_book::Orderbook;
+use orderbook_aggregator::proto::orderbook_aggregator_server::{
+    OrderbookAggregator, OrderbookAggregatorServer,
+};
+use orderbook_aggregator::proto::{Empty, Level, Summary};
+use orderbook_aggregator::{aggregator::Aggregator, binance, bitstamp};
 use rust_decimal::prelude::ToPrimitive;
-
-pub mod proto {
-    tonic::include_proto!("orderbook");
-}
 
 #[derive(StructOpt, Debug)]
 #[structopt(about = "Orderbook aggregator")]
@@ -32,17 +29,17 @@ impl OrderbookAggregator for AggregatorService {
 
     async fn book_summary(
         &self,
-        request: Request<Empty>,
-    ) -> Result<Response<Self::BookSummaryStream>, Status>
-    {
-        let (mut tx, rx) = mpsc::channel(4);
+        _request: Request<Empty>,
+    ) -> Result<Response<Self::BookSummaryStream>, Status> {
+        let (tx, rx) = mpsc::channel(4);
         let mut orderbook_rx = self.rx.clone();
 
         tokio::spawn(async move {
             while orderbook_rx.changed().await.is_ok() {
                 let orderbook = orderbook_rx.borrow().clone();
                 let spread = orderbook.spread().unwrap_or(0.0);
-                let bids = orderbook.bids
+                let bids = orderbook
+                    .bids
                     .iter()
                     .map(|bid| Level {
                         exchange: bid.exchange.to_string(),
@@ -50,7 +47,8 @@ impl OrderbookAggregator for AggregatorService {
                         amount: bid.size.to_f64().unwrap(),
                     })
                     .collect();
-                let asks = orderbook.asks
+                let asks = orderbook
+                    .asks
                     .iter()
                     .map(|ask| Level {
                         exchange: ask.exchange.to_string(),
@@ -58,12 +56,16 @@ impl OrderbookAggregator for AggregatorService {
                         amount: ask.size.to_f64().unwrap(),
                     })
                     .collect();
-                println!("sending");
-                tx.send(Ok(Summary {
-                    spread: spread,
-                    bids: bids,
-                    asks: asks,
-                })).await;
+                let res = tx
+                    .send(Ok(Summary {
+                        spread: spread,
+                        bids: bids,
+                        asks: asks,
+                    }))
+                    .await;
+                if let Err(_) = res {
+                    break;
+                }
             }
         });
 
@@ -75,7 +77,7 @@ impl OrderbookAggregator for AggregatorService {
 
 async fn connect_exchanges(
     pair: String,
-    orderbook_tx: watch::Sender<Orderbook>
+    orderbook_tx: watch::Sender<Orderbook>,
 ) -> orderbook_aggregator::Result<()> {
     let (tx, mut rx) = mpsc::channel(32);
     let tx2 = tx.clone();
@@ -110,11 +112,9 @@ async fn connect_exchanges(
 async fn main() -> orderbook_aggregator::Result<()> {
     let opt = Opt::from_args();
     let addr = "[::1]:50051".parse().unwrap();
-    let (tx, mut rx) = watch::channel(Orderbook::new());
+    let (tx, rx) = watch::channel(Orderbook::new());
     connect_exchanges(opt.pair, tx).await?;
-    let aggregator = AggregatorService {
-        rx: rx
-    };
+    let aggregator = AggregatorService { rx: rx };
     println!("Server listening on {}", addr);
     Server::builder()
         .add_service(OrderbookAggregatorServer::new(aggregator))

@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use crate::order_book::{
-    Exchange, Orderbook
-};
+use crate::order_book::{Exchange, Orderbook};
 
 const LIMIT: usize = 10;
 
@@ -27,12 +25,14 @@ impl Aggregator {
 
     /// Create aggregated orderbook
     pub fn aggregate(&mut self) -> Orderbook {
-        let all_bids = self.orderbooks
+        let all_bids = self
+            .orderbooks
             .values()
             .flat_map(|orderbook| orderbook.bids.to_vec())
             .take(LIMIT)
             .collect();
-        let all_asks = self.orderbooks
+        let all_asks = self
+            .orderbooks
             .values()
             .flat_map(|orderbook| orderbook.asks.to_vec())
             .take(LIMIT)
@@ -93,7 +93,5 @@ mod tests {
             assert_eq!(top_ask.exchange, Exchange::Binance);
             assert_eq!(top_ask.price, dec!(0.8));
         }
-
-
     }
 }

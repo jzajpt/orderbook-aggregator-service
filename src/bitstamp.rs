@@ -9,7 +9,7 @@ use tokio::sync::mpsc::Sender;
 use websocket_lite::{Message, Opcode, Result};
 
 use crate::order_book::{
-    AsksVec, BidsVec, Exchange, Orderbook, OrderbookEntry, OrderbookUpdateEvent
+    AsksVec, BidsVec, Exchange, Orderbook, OrderbookEntry, OrderbookUpdateEvent,
 };
 
 const URL: &str = "wss://ws.bitstamp.net";
@@ -29,11 +29,13 @@ impl From<LiveOrderbookEvent> for Orderbook {
     /// Create new `Orderbook` from `LiveOrderbookEvent`
     fn from(orderbook_event: LiveOrderbookEvent) -> Self {
         let orderbook_entry_from = move |e| OrderbookEntry::from_exchange(Exchange::Binance, e);
-        let asks: Vec<OrderbookEntry> = orderbook_event.asks
+        let asks: Vec<OrderbookEntry> = orderbook_event
+            .asks
             .into_iter()
             .map(orderbook_entry_from)
             .collect();
-        let bids: Vec<OrderbookEntry> = orderbook_event.bids
+        let bids: Vec<OrderbookEntry> = orderbook_event
+            .bids
             .into_iter()
             .map(orderbook_entry_from)
             .collect();
@@ -49,7 +51,7 @@ impl From<LiveOrderbookEvent> for Orderbook {
 #[serde(untagged)]
 enum EventData {
     LiveOrderbook(LiveOrderbookEvent),
-    Empty {}
+    Empty {},
 }
 
 /// General event structure that Bitstamp sends.
@@ -93,13 +95,11 @@ pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
                 match event.data {
                     EventData::LiveOrderbook(orderbook_data) => {
                         let orderbook = Orderbook::from(orderbook_data);
-                        let update_event = OrderbookUpdateEvent::new(
-                            Exchange::Bitstamp, orderbook
-                        );
+                        let update_event = OrderbookUpdateEvent::new(Exchange::Bitstamp, orderbook);
                         tx.send(update_event).await.unwrap();
-                    },
+                    }
                     _ => {}
-                 }
+                }
             }
             Opcode::Ping => ws_stream.send(Message::pong(msg.into_data())).await?,
             Opcode::Close => {
@@ -107,7 +107,7 @@ pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
                 let _ = ws_stream.send(Message::close(None)).await;
                 break Ok(());
             }
-            Opcode::Binary => {},
+            Opcode::Binary => {}
             Opcode::Pong => {}
         }
     }
