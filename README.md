@@ -29,10 +29,9 @@ will use their "Partial Book Depth Stream" which provides updates each 100ms.
 Bitstamp websocket API offers live order book endpoint which is streaming top
 100 bids and asks real-time.
 
-
 ## TODO
 
-- [ ] Combined orderbook
+- [x] Combined orderbook
 - [ ] Connection reset handling
 - [ ] CTRL+C graceful handling
 - [ ] gRPC interface - server

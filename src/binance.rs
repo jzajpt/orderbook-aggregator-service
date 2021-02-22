@@ -24,11 +24,11 @@ impl From<PartialBookEvent> for Orderbook {
     /// Create new `Orderbook` from `PartialBookEvent`
     fn from(partial_book_event: PartialBookEvent) -> Self {
         let orderbook_entry_from = move |e| OrderbookEntry::from_exchange(Exchange::Bitstamp, e);
-        let mut asks: Vec<OrderbookEntry> = partial_book_event.asks
+        let asks: Vec<OrderbookEntry> = partial_book_event.asks
             .into_iter()
             .map(orderbook_entry_from)
             .collect();
-        let mut bids: Vec<OrderbookEntry> = partial_book_event.bids
+        let bids: Vec<OrderbookEntry> = partial_book_event.bids
             .into_iter()
             .map(orderbook_entry_from)
             .collect::<Vec<OrderbookEntry>>();
@@ -69,7 +69,7 @@ pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
                 let update_event = OrderbookUpdateEvent::new(
                     Exchange::Binance, orderbook
                 );
-                tx.send(update_event).await;
+                tx.send(update_event).await.unwrap();
             }
             Opcode::Ping => ws_stream.send(Message::pong(msg.into_data())).await?,
             Opcode::Close => {

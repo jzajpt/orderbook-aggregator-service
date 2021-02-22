@@ -96,7 +96,7 @@ pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
                         let update_event = OrderbookUpdateEvent::new(
                             Exchange::Bitstamp, orderbook
                         );
-                        tx.send(update_event).await;
+                        tx.send(update_event).await.unwrap();
                     },
                     _ => {}
                  }

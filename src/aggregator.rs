@@ -1,35 +1,40 @@
-#![feature(map_into_keys_values)]
 use std::collections::HashMap;
 
 use crate::order_book::{
-    AsksVec, BidsVec, Exchange, Orderbook
+    Exchange, Orderbook
 };
 
 const LIMIT: usize = 10;
 
+/// Aggregates n orderbooks
 pub struct Aggregator {
     pub orderbooks: HashMap<Exchange, Orderbook>,
 }
 
 impl Aggregator {
+    /// Create new aggregator
     pub fn new() -> Self {
         let orderbooks = HashMap::new();
         Self { orderbooks }
     }
 
+    /// Update orderbook snapshot for given exchange
     pub fn push(&mut self, exchange: Exchange, orderbook: Orderbook) {
         self.orderbooks.remove(&exchange);
         self.orderbooks.insert(exchange, orderbook);
     }
 
+    /// Create aggregated orderbook
     pub fn aggregate(&mut self) -> Orderbook {
         let all_bids = self.orderbooks
             .values()
             .flat_map(|orderbook| orderbook.bids.to_vec())
+            .take(LIMIT)
             .collect();
         let all_asks = self.orderbooks
             .values()
             .flat_map(|orderbook| orderbook.asks.to_vec())
+            .take(LIMIT)
             .collect();
         Orderbook::from_bids_asks(all_bids, all_asks)
     }

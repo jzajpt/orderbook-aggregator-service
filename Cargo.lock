@@ -468,6 +468,7 @@ version = "0.1.0"
 dependencies = [
  "dotenv",
  "futures",
+ "futures-core",
  "partial_application",
  "prost",
  "rust_decimal",
