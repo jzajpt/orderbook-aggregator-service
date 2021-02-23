@@ -1,4 +1,4 @@
-use crate::order_book::{Orderbook, OrderbookLevel};
+use crate::order_book::Orderbook;
 use rust_decimal::prelude::ToPrimitive;
 
 tonic::include_proto!("orderbook");

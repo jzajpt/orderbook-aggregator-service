@@ -103,7 +103,7 @@ mod tests {
 
         let recv = tokio::spawn(async move {
             loop {
-                if let Some(resp) = rx.recv().await {
+                if let Some(_) = rx.recv().await {
                     break;
                 }
             }

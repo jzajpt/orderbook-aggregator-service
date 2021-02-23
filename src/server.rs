@@ -4,13 +4,18 @@ use std::pin::Pin;
 use tokio::sync::{mpsc, watch};
 use tonic::{transport::Server, Request, Response, Status};
 
-use orderbook_aggregator::order_book::Orderbook;
-use orderbook_aggregator::proto::orderbook_aggregator_server::{
-    OrderbookAggregator, OrderbookAggregatorServer,
+use orderbook_aggregator::{
+    aggregator::Aggregator,
+    binance,
+    bitstamp,
+    order_book::Orderbook,
+    proto::{
+        Empty, Summary,
+        orderbook_aggregator_server::{
+            OrderbookAggregator, OrderbookAggregatorServer,
+        }
+    }
 };
-use orderbook_aggregator::proto::{Empty, Level, Summary};
-use orderbook_aggregator::{aggregator::Aggregator, binance, bitstamp};
-use rust_decimal::prelude::ToPrimitive;
 
 pub struct AggregatorService {
     rx: watch::Receiver<Orderbook>,
