@@ -31,5 +31,9 @@ tokio-stream = { version =  "0.1", features = ["net"] }
 strum = "0.20"
 strum_macros = "0.20"
 
+[dev-dependencies]
+tokio-test = "0.4"
+ntest = "0.7"
+
 [build-dependencies]
 tonic-build = "0.4.0"

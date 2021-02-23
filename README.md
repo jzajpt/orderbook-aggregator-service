@@ -34,6 +34,7 @@ Bitstamp websocket API offers live order book endpoint which is streaming top
 - [x] Exchange connectors
 - [x] Combined orderbook
 - [x] gRPC interface - server
+- [ ] Invalid pair name handling
 - [ ] Connection reset handling
 - [ ] CTRL+C graceful handling
 - [ ] gRPC client

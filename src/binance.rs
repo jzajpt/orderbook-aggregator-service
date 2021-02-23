@@ -81,3 +81,35 @@ pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use ntest::timeout;
+    use tokio::sync::mpsc;
+
+    use super::*;
+
+    /// This test case asserts that the `run` function given the
+    /// valid pair name will send a message through the channel
+    /// within 5s of starting it.
+    #[tokio::test]
+    #[timeout(5000)]
+    async fn run_sends_updates_within_5s() {
+        let (tx, mut rx) = mpsc::channel(2);
+
+        tokio::spawn(async move {
+            run("ethbtc", tx).await.unwrap();
+        });
+
+        let recv = tokio::spawn(async move {
+            loop {
+                if let Some(resp) = rx.recv().await {
+                    break;
+                }
+            }
+        });
+
+        recv.await.unwrap();
+    }
+}
