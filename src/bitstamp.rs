@@ -9,7 +9,7 @@ use tokio::sync::mpsc::Sender;
 use websocket_lite::{Message, Opcode, Result};
 
 use crate::order_book::{
-    AsksVec, BidsVec, Exchange, Orderbook, OrderbookEntry, OrderbookUpdateEvent,
+    AsksVec, BidsVec, Exchange, Orderbook, OrderbookLevel, OrderbookUpdateEvent,
 };
 
 const URL: &str = "wss://ws.bitstamp.net";
@@ -28,13 +28,13 @@ struct LiveOrderbookEvent {
 impl From<LiveOrderbookEvent> for Orderbook {
     /// Create new `Orderbook` from `LiveOrderbookEvent`
     fn from(orderbook_event: LiveOrderbookEvent) -> Self {
-        let orderbook_entry_from = move |e| OrderbookEntry::from_exchange(Exchange::Binance, e);
-        let asks: Vec<OrderbookEntry> = orderbook_event
+        let orderbook_entry_from = move |e| OrderbookLevel::from_exchange(Exchange::Binance, e);
+        let asks: Vec<OrderbookLevel> = orderbook_event
             .asks
             .into_iter()
             .map(orderbook_entry_from)
             .collect();
-        let bids: Vec<OrderbookEntry> = orderbook_event
+        let bids: Vec<OrderbookLevel> = orderbook_event
             .bids
             .into_iter()
             .map(orderbook_entry_from)

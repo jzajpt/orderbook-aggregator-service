@@ -29,16 +29,14 @@ impl Aggregator {
             .values()
             .map(|orderbook| orderbook.bids.to_vec())
             .flatten()
-            .take(LIMIT)
             .collect();
         let all_asks = self
             .orderbooks
             .values()
             .map(|orderbook| orderbook.asks.to_vec())
             .flatten()
-            .take(LIMIT)
             .collect();
-        Orderbook::from_bids_asks(all_bids, all_asks)
+        Orderbook::from_bids_asks(all_bids, all_asks).limit(LIMIT)
     }
 }
 
@@ -53,30 +51,30 @@ mod tests {
     use rust_decimal_macros::*;
 
     use super::*;
-    use crate::order_book::{Orderbook, OrderbookEntry};
+    use crate::order_book::{Orderbook, OrderbookLevel};
 
     #[test]
     fn test_orderbook_aggregation() {
         let asks = vec![
-            OrderbookEntry::new(dec!(1.3), dec!(1.0), Exchange::Bitstamp),
-            OrderbookEntry::new(dec!(1.1), dec!(1.0), Exchange::Bitstamp),
-            OrderbookEntry::new(dec!(0.9), dec!(1.0), Exchange::Bitstamp),
+            OrderbookLevel::ask(dec!(1.3), dec!(1.0), Exchange::Bitstamp),
+            OrderbookLevel::ask(dec!(1.1), dec!(1.0), Exchange::Bitstamp),
+            OrderbookLevel::ask(dec!(0.9), dec!(1.0), Exchange::Bitstamp),
         ];
         let bids = vec![
-            OrderbookEntry::new(dec!(0.83), dec!(1.0), Exchange::Bitstamp),
-            OrderbookEntry::new(dec!(0.75), dec!(1.0), Exchange::Bitstamp),
-            OrderbookEntry::new(dec!(0.7), dec!(1.0), Exchange::Bitstamp),
+            OrderbookLevel::bid(dec!(0.83), dec!(1.0), Exchange::Bitstamp),
+            OrderbookLevel::bid(dec!(0.75), dec!(1.0), Exchange::Bitstamp),
+            OrderbookLevel::bid(dec!(0.7), dec!(1.0), Exchange::Bitstamp),
         ];
         let bitstamp_ob = Orderbook::from_bids_asks(bids, asks);
         let asks = vec![
-            OrderbookEntry::new(dec!(1.2), dec!(1.0), Exchange::Binance),
-            OrderbookEntry::new(dec!(1.1), dec!(1.0), Exchange::Binance),
-            OrderbookEntry::new(dec!(0.85), dec!(1.0), Exchange::Binance),
+            OrderbookLevel::ask(dec!(1.2), dec!(1.0), Exchange::Binance),
+            OrderbookLevel::ask(dec!(1.1), dec!(1.0), Exchange::Binance),
+            OrderbookLevel::ask(dec!(0.85), dec!(1.0), Exchange::Binance),
         ];
         let bids = vec![
-            OrderbookEntry::new(dec!(0.8), dec!(1.0), Exchange::Binance),
-            OrderbookEntry::new(dec!(0.75), dec!(1.0), Exchange::Binance),
-            OrderbookEntry::new(dec!(0.7), dec!(1.0), Exchange::Binance),
+            OrderbookLevel::bid(dec!(0.8), dec!(1.0), Exchange::Binance),
+            OrderbookLevel::bid(dec!(0.75), dec!(1.0), Exchange::Binance),
+            OrderbookLevel::bid(dec!(0.7), dec!(1.0), Exchange::Binance),
         ];
         let binance_ob = Orderbook::from_bids_asks(bids, asks);
         let mut aggregator = Aggregator::new();

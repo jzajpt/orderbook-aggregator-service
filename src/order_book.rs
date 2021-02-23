@@ -8,8 +8,8 @@ use strum_macros::{EnumString, ToString};
 
 use crate::proto;
 
-pub type AsksVec = SortedVec<OrderbookEntry>;
-pub type BidsVec = ReverseSortedVec<OrderbookEntry>;
+pub type AsksVec = SortedVec<OrderbookLevel>;
+pub type BidsVec = ReverseSortedVec<OrderbookLevel>;
 
 /// Supported exchanges.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, ToString, EnumString)]
@@ -29,16 +29,22 @@ pub struct Orderbook {
 impl Orderbook {
     pub fn new() -> Self {
         Self {
-            asks: SortedVec::new(),
-            bids: ReverseSortedVec::new(),
+            asks: AsksVec::new(),
+            bids: BidsVec::new(),
         }
     }
 
-    pub fn from_bids_asks(bids: Vec<OrderbookEntry>, asks: Vec<OrderbookEntry>) -> Self {
+    pub fn from_bids_asks(bids: Vec<OrderbookLevel>, asks: Vec<OrderbookLevel>) -> Self {
         Self {
             bids: BidsVec::from(bids),
             asks: AsksVec::from(asks),
         }
+    }
+
+    pub fn limit(&self, limit: usize) -> Orderbook {
+        let bids = self.bids.iter().cloned().take(limit).collect();
+        let asks = self.asks.iter().cloned().take(limit).collect();
+        Orderbook::from_bids_asks(bids, asks)
     }
 
     pub fn spread(&self) -> Option<f64> {
@@ -56,67 +62,99 @@ impl Orderbook {
     }
 }
 
+/// Orderbook level side
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum LevelSide {
+    Bid,
+    Ask,
+    Unknown,
+}
+
 /// Simple orderbook entry.
 #[derive(Debug, Eq, Clone, Copy)]
-pub struct OrderbookEntry {
+pub struct OrderbookLevel {
     pub price: Decimal,
     pub size: Decimal,
     pub exchange: Exchange,
+    pub side: LevelSide,
 }
 
-impl OrderbookEntry {
-    pub fn new(price: Decimal, size: Decimal, exchange: Exchange) -> Self {
+impl OrderbookLevel {
+    pub fn bid(price: Decimal, size: Decimal, exchange: Exchange) -> Self {
         Self {
             price,
             size,
             exchange,
+            side: LevelSide::Bid,
+        }
+    }
+
+    pub fn ask(price: Decimal, size: Decimal, exchange: Exchange) -> Self {
+        Self {
+            price,
+            size,
+            exchange,
+            side: LevelSide::Ask,
         }
     }
 
     pub fn from_exchange(exchange: Exchange, tuple: (Decimal, Decimal)) -> Self {
-        OrderbookEntry {
+        OrderbookLevel {
             price: tuple.0,
             size: tuple.1,
             exchange,
+            side: LevelSide::Unknown,
         }
     }
 }
 
-impl From<(Decimal, Decimal)> for OrderbookEntry {
+impl From<(Decimal, Decimal)> for OrderbookLevel {
     fn from(tuple: (Decimal, Decimal)) -> Self {
-        OrderbookEntry {
+        OrderbookLevel {
             price: tuple.0,
             size: tuple.1,
             exchange: Exchange::Unknown,
+            side: LevelSide::Unknown,
         }
     }
 }
 
-impl From<proto::Level> for OrderbookEntry {
+impl From<proto::Level> for OrderbookLevel {
     fn from(level: proto::Level) -> Self {
-        OrderbookEntry {
+        OrderbookLevel {
             price: Decimal::from_f64(level.price).unwrap(),
             size: Decimal::from_f64(level.amount).unwrap(),
             exchange: Exchange::from_str(&level.exchange).unwrap(),
+            side: LevelSide::Unknown,
         }
     }
 }
 
-impl PartialOrd for OrderbookEntry {
+impl PartialOrd for OrderbookLevel {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.price.partial_cmp(&other.price)
+        Some(self.cmp(other))
     }
 }
 
-impl Ord for OrderbookEntry {
+impl Ord for OrderbookLevel {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.price.cmp(&other.price)
+        let order = self.price.cmp(&other.price);
+        if let Ordering::Equal = order {
+            let order = self.size.cmp(&other.size);
+            let order = match self.side {
+                LevelSide::Ask => { order.reverse() }
+                _ => { order }
+            };
+            order
+        } else {
+            order
+        }
     }
 }
 
-impl PartialEq for OrderbookEntry {
+impl PartialEq for OrderbookLevel {
     fn eq(&self, other: &Self) -> bool {
-        self.price == other.price
+        self.price == other.price && self.size == other.size && self.exchange == self.exchange
     }
 }
 
@@ -142,22 +180,32 @@ mod tests {
     #[test]
     fn asks_are_sorted() {
         let asks = vec![
-            OrderbookEntry::new(dec!(1.2), dec!(1.0), Exchange::Unknown),
-            OrderbookEntry::new(dec!(1.1), dec!(1.0), Exchange::Unknown),
-            OrderbookEntry::new(dec!(0.9), dec!(1.0), Exchange::Unknown),
+            OrderbookLevel::ask(dec!(1.2), dec!(1.0), Exchange::Unknown),
+            OrderbookLevel::ask(dec!(1.1), dec!(1.0), Exchange::Unknown),
+            OrderbookLevel::ask(dec!(0.9), dec!(0.1), Exchange::Unknown),
+            OrderbookLevel::ask(dec!(0.9), dec!(10.0), Exchange::Unknown),
         ];
         let asks = AsksVec::from(asks);
-        assert_eq!(asks.first().unwrap().price, dec!(0.9));
+        let top_ask = asks[0];
+        assert_eq!(top_ask.price, dec!(0.9));
+        assert_eq!(top_ask.size, dec!(10.0));
     }
 
     #[test]
     fn bids_are_sorted() {
         let bids = vec![
-            OrderbookEntry::new(dec!(1.1), dec!(1.0), Exchange::Unknown),
-            OrderbookEntry::new(dec!(1.2), dec!(1.0), Exchange::Unknown),
-            OrderbookEntry::new(dec!(0.8), dec!(1.0), Exchange::Unknown),
+            OrderbookLevel::bid(dec!(1.1), dec!(1.0), Exchange::Unknown),
+            OrderbookLevel::bid(dec!(1.1), dec!(2.0), Exchange::Unknown),
+            OrderbookLevel::bid(dec!(0.8), dec!(1.0), Exchange::Unknown),
+            OrderbookLevel::bid(dec!(1.2), dec!(3.0), Exchange::Unknown),
         ];
         let bids = BidsVec::from(bids);
-        assert_eq!(bids.first().unwrap().price, dec!(1.2));
+        let top_bid = bids[0];
+        assert_eq!(top_bid.price, dec!(1.2));
+        assert_eq!(top_bid.size, dec!(3.0));
+
+        let second_bid = bids[1];
+        assert_eq!(second_bid.price, dec!(1.1));
+        assert_eq!(second_bid.size, dec!(2.0));
     }
 }

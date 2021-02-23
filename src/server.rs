@@ -1,6 +1,6 @@
 use futures_core::Stream;
-use std::pin::Pin;
 use std::env::var;
+use std::pin::Pin;
 use tokio::sync::{mpsc, watch};
 use tonic::{transport::Server, Request, Response, Status};
 
@@ -31,32 +31,8 @@ impl OrderbookAggregator for AggregatorService {
         tokio::spawn(async move {
             while orderbook_rx.changed().await.is_ok() {
                 let orderbook = orderbook_rx.borrow().clone();
-                let spread = orderbook.spread().unwrap_or(0.0);
-                let bids = orderbook
-                    .bids
-                    .iter()
-                    .map(|bid| Level {
-                        exchange: bid.exchange.to_string(),
-                        price: bid.price.to_f64().unwrap(),
-                        amount: bid.size.to_f64().unwrap(),
-                    })
-                    .collect();
-                let asks = orderbook
-                    .asks
-                    .iter()
-                    .map(|ask| Level {
-                        exchange: ask.exchange.to_string(),
-                        price: ask.price.to_f64().unwrap(),
-                        amount: ask.size.to_f64().unwrap(),
-                    })
-                    .collect();
-                let res = tx
-                    .send(Ok(Summary {
-                        spread: spread,
-                        bids: bids,
-                        asks: asks,
-                    }))
-                    .await;
+                let summary = Summary::from(orderbook);
+                let res = tx.send(Ok(summary)).await;
                 if let Err(_) = res {
                     break;
                 }
@@ -109,9 +85,7 @@ async fn connect_exchanges(
 #[tokio::main]
 async fn main() -> orderbook_aggregator::Result<()> {
     let (tx, rx) = watch::channel(Orderbook::new());
-    let pair = var("PAIR").expect(
-        "Set the PAIR environment variable"
-    );
+    let pair = var("PAIR").expect("Set the PAIR environment variable");
     connect_exchanges(pair, tx).await?;
     let aggregator = AggregatorService { rx: rx };
     let addr = "0.0.0.0:50051".parse().unwrap();

@@ -6,7 +6,7 @@ use tokio::sync::mpsc::Sender;
 use websocket_lite::{Message, Opcode, Result};
 
 use crate::order_book::{
-    AsksVec, BidsVec, Exchange, Orderbook, OrderbookEntry, OrderbookUpdateEvent,
+    AsksVec, BidsVec, Exchange, Orderbook, OrderbookLevel, OrderbookUpdateEvent,
 };
 
 const URL: &str = "wss://stream.binance.com:9443/ws/";
@@ -23,17 +23,17 @@ struct PartialBookEvent {
 impl From<PartialBookEvent> for Orderbook {
     /// Create new `Orderbook` from `PartialBookEvent`
     fn from(partial_book_event: PartialBookEvent) -> Self {
-        let orderbook_entry_from = move |e| OrderbookEntry::from_exchange(Exchange::Bitstamp, e);
-        let asks: Vec<OrderbookEntry> = partial_book_event
+        let orderbook_entry_from = move |e| OrderbookLevel::from_exchange(Exchange::Bitstamp, e);
+        let asks: Vec<OrderbookLevel> = partial_book_event
             .asks
             .into_iter()
             .map(orderbook_entry_from)
             .collect();
-        let bids: Vec<OrderbookEntry> = partial_book_event
+        let bids: Vec<OrderbookLevel> = partial_book_event
             .bids
             .into_iter()
             .map(orderbook_entry_from)
-            .collect::<Vec<OrderbookEntry>>();
+            .collect::<Vec<OrderbookLevel>>();
 
         Orderbook {
             asks: AsksVec::from(asks),
@@ -81,7 +81,6 @@ pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

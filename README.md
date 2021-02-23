@@ -10,15 +10,20 @@ Using Rust, code a mini project that:
 3. merges and sorts the order books to create a combined order book,
 4. from the combined book, publishes the spread , top ten bids , and top ten asks , as a stream, through a gRPC server.
 
+## How to run this
 
-## Solution
+If you have `grpcurl` installed, you can test the version deployed on
+DigitalOcean:
 
-The aggregator is built using `tokio` async runtime. For each exchange an async 
-task will be spawn that will be handling the connection and processing
-the stream.
+```
+grpcurl -plaintext -import-path ./proto -proto orderbook.proto \ 
+161.35.221.121:50051 orderbook.OrderbookAggregator/BookSummary
+```
 
-Sharing data between concurrent tasks will be done using passing messages using
-channel primitives provided by `tokio`.
+## Architecture
+
+The aggregator is built using `tokio` async runtime with `websocket_lite` for
+websocket handling and `tonic` for gRPC.
 
 ### Binance
 
