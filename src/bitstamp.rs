@@ -142,4 +142,24 @@ mod tests {
 
         recv.await.unwrap();
     }
+
+    // This test case asserts that the `run` function given the
+    // invalid pair name will return error.
+    // #[tokio::test]
+    // #[timeout(5000)]
+    // async fn run_returns_error() {
+    //     let (tx, mut rx) = mpsc::channel(2);
+    //     let result = run("xxx", tx).await;
+    //     let mut received = false;
+    //     let recv = tokio::spawn(async move {
+    //         loop {
+    //             if let Some(resp) = rx.recv().await {
+    //                 received = true;
+    //                 break;
+    //             }
+    //         }
+    //     });
+    //     recv.await.unwrap();
+    //     assert_eq!(recieved, true);
+    // }
 }

@@ -1,6 +1,6 @@
 use futures_core::Stream;
 use std::pin::Pin;
-use structopt::StructOpt;
+use std::env::var;
 use tokio::sync::{mpsc, watch};
 use tonic::{transport::Server, Request, Response, Status};
 
@@ -11,12 +11,6 @@ use orderbook_aggregator::proto::orderbook_aggregator_server::{
 use orderbook_aggregator::proto::{Empty, Level, Summary};
 use orderbook_aggregator::{aggregator::Aggregator, binance, bitstamp};
 use rust_decimal::prelude::ToPrimitive;
-
-#[derive(StructOpt, Debug)]
-#[structopt(about = "Orderbook aggregator")]
-struct Opt {
-    pair: String,
-}
 
 pub struct AggregatorService {
     rx: watch::Receiver<Orderbook>,
@@ -75,6 +69,10 @@ impl OrderbookAggregator for AggregatorService {
     }
 }
 
+/// Connect to exchanges.
+///
+/// Spawns a new task for each exchange plus one task for aggregating
+/// the orderbooks.
 async fn connect_exchanges(
     pair: String,
     orderbook_tx: watch::Sender<Orderbook>,
@@ -110,11 +108,13 @@ async fn connect_exchanges(
 
 #[tokio::main]
 async fn main() -> orderbook_aggregator::Result<()> {
-    let opt = Opt::from_args();
-    let addr = "[::1]:50051".parse().unwrap();
     let (tx, rx) = watch::channel(Orderbook::new());
-    connect_exchanges(opt.pair, tx).await?;
+    let pair = var("PAIR").expect(
+        "Set the PAIR environment variable"
+    );
+    connect_exchanges(pair, tx).await?;
     let aggregator = AggregatorService { rx: rx };
+    let addr = "0.0.0.0:50051".parse().unwrap();
     println!("Server listening on {}", addr);
     Server::builder()
         .add_service(OrderbookAggregatorServer::new(aggregator))

@@ -4,11 +4,13 @@ version = "0.1.0"
 authors = ["Jiri Zajpt <5701+jzajpt@users.noreply.github.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[[bin]] # Bin to run the HelloWorld gRPC server
+[[bin]]
 name = "aggregator-server"
 path = "src/server.rs"
+
+[[bin]]
+name = "aggregator-client"
+path = "src/client.rs"
 
 [dependencies]
 dotenv = "0.15"

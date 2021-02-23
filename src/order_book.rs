@@ -42,8 +42,9 @@ impl Orderbook {
     }
 
     pub fn spread(&self) -> Option<f64> {
-        let spread = self.top_bid().unwrap_or(dec!(0.0)) - self.top_ask().unwrap_or(dec!(0.0));
-        spread.to_f64()
+        let bid = self.top_bid().unwrap_or(dec!(0.0));
+        let ask = self.top_ask().unwrap_or(dec!(0.0));
+        (ask - bid).to_f64()
     }
 
     pub fn top_bid(&self) -> crate::Result<Decimal> {

@@ -10,6 +10,7 @@ Using Rust, code a mini project that:
 3. merges and sorts the order books to create a combined order book,
 4. from the combined book, publishes the spread , top ten bids , and top ten asks , as a stream, through a gRPC server.
 
+
 ## Solution
 
 The aggregator is built using `tokio` async runtime. For each exchange an async 
@@ -34,6 +35,8 @@ Bitstamp websocket API offers live order book endpoint which is streaming top
 - [x] Exchange connectors
 - [x] Combined orderbook
 - [x] gRPC interface - server
+- [ ] CircleCI build
+- [ } Deployment
 - [ ] Invalid pair name handling
 - [ ] Connection reset handling
 - [ ] CTRL+C graceful handling
@@ -45,3 +48,4 @@ Bitstamp websocket API offers live order book endpoint which is streaming top
 
 * How much "gracefully" handle error states?
 * What should the aggregator return if only one of the exchanges is available?
+* How to handle 

@@ -1,9 +1,11 @@
 FROM rust:1.50
 
-WORKDIR /usr/src/keyrock-challenge
+WORKDIR /usr/src/orderbook-aggregator
 COPY . .
 
+RUN rustup component add rustfmt
 RUN cargo install --path .
 
-CMD ["keyrock-challenge"]
+ENV PAIR=ethbtc
 
+CMD ["aggregator-server"]
