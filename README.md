@@ -12,13 +12,38 @@ Using Rust, code a mini project that:
 
 ## How to run this
 
-If you have `grpcurl` installed, you can test the version deployed on
+After checking out the git repo, run the following to compile & 
+start the server:
+
+```
+PAIR=btcusdc cargo run --bin aggregator-server
+```
+
+To run the example client:
+
+```
+cargo run --bin aggregator-client
+```
+
+## Using docker-compose
+
+You can also use docker-compose to run the server:
+
+```
+docker-compose up
+```
+
+
+## Using grpcurl
+
+If you have `grpcurl` installed, you can test aggregator deployed on
 DigitalOcean:
 
 ```
 grpcurl -plaintext -import-path ./proto -proto orderbook.proto \ 
 161.35.221.121:50051 orderbook.OrderbookAggregator/BookSummary
 ```
+
 
 ## Architecture
 
@@ -40,17 +65,10 @@ Bitstamp websocket API offers live order book endpoint which is streaming top
 - [x] Exchange connectors
 - [x] Combined orderbook
 - [x] gRPC interface - server
+- [x] Deployment
+- [x] gRPC client
 - [ ] CircleCI build
-- [ } Deployment
 - [ ] Invalid pair name handling
 - [ ] Connection reset handling
 - [ ] CTRL+C graceful handling
-- [ ] gRPC client
 - [ ] more tests
-
-
-## Open questiosn
-
-* How much "gracefully" handle error states?
-* What should the aggregator return if only one of the exchanges is available?
-* How to handle 
