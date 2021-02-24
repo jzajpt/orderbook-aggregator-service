@@ -142,8 +142,8 @@ impl Ord for OrderbookLevel {
         if let Ordering::Equal = order {
             let order = self.size.cmp(&other.size);
             let order = match self.side {
-                LevelSide::Ask => { order.reverse() }
-                _ => { order }
+                LevelSide::Ask => order.reverse(),
+                _ => order,
             };
             order
         } else {

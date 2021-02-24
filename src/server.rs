@@ -1,20 +1,17 @@
 use futures_core::Stream;
-use std::env::var;
+use std::env;
 use std::pin::Pin;
 use tokio::sync::{mpsc, watch};
 use tonic::{transport::Server, Request, Response, Status};
 
 use orderbook_aggregator::{
     aggregator::Aggregator,
-    binance,
-    bitstamp,
+    binance, bitstamp,
     order_book::Orderbook,
     proto::{
+        orderbook_aggregator_server::{OrderbookAggregator, OrderbookAggregatorServer},
         Empty, Summary,
-        orderbook_aggregator_server::{
-            OrderbookAggregator, OrderbookAggregatorServer,
-        }
-    }
+    },
 };
 
 pub struct AggregatorService {
@@ -36,8 +33,7 @@ impl OrderbookAggregator for AggregatorService {
         tokio::spawn(async move {
             while orderbook_rx.changed().await.is_ok() {
                 let orderbook = orderbook_rx.borrow().clone();
-                let summary = Summary::from(orderbook);
-                let res = tx.send(Ok(summary)).await;
+                let res = tx.send(Ok(Summary::from(orderbook))).await;
                 if let Err(_) = res {
                     break;
                 }
@@ -50,7 +46,7 @@ impl OrderbookAggregator for AggregatorService {
     }
 }
 
-/// Connect to exchanges.
+/// Connect to exchanges and manage aggregation.
 ///
 /// Spawns a new task for each exchange plus one task for aggregating
 /// the orderbooks.
@@ -62,17 +58,14 @@ async fn connect_exchanges(
     let tx2 = tx.clone();
     let pair2 = pair.clone();
 
-    // Bitstamp websocket connection task
     tokio::spawn(async move {
         bitstamp::run(&pair2, tx).await.unwrap();
     });
 
-    // Binance websocket connection task
     tokio::spawn(async move {
         binance::run(&pair, tx2).await.unwrap();
     });
 
-    // Aggregator task
     tokio::spawn(async move {
         let mut aggregator = Aggregator::new();
         while let Some(msg) = rx.recv().await {
@@ -90,10 +83,15 @@ async fn connect_exchanges(
 #[tokio::main]
 async fn main() -> orderbook_aggregator::Result<()> {
     let (tx, rx) = watch::channel(Orderbook::new());
-    let pair = var("PAIR").expect("Set the PAIR environment variable");
+    let pair = env::var("PAIR").expect("Set the PAIR environment variable");
+    println!("Subscribing for updates on {}", pair);
     connect_exchanges(pair, tx).await?;
+
     let aggregator = AggregatorService { rx: rx };
-    let addr = "0.0.0.0:50051".parse().unwrap();
+    let addr = env::var("SERVER_ADDR")
+        .unwrap_or("127.0.0.1:50051".to_owned())
+        .parse()
+        .expect("Invalid address provided. Proper format: [IP]:[PORT]");
     println!("Server listening on {}", addr);
     Server::builder()
         .add_service(OrderbookAggregatorServer::new(aggregator))

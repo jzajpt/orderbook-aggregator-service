@@ -32,6 +32,7 @@ async-trait = "0.1"
 tokio-stream = { version =  "0.1", features = ["net"] }
 strum = "0.20"
 strum_macros = "0.20"
+simple-error = "0.2.3"
 
 [dev-dependencies]
 tokio-test = "0.4"

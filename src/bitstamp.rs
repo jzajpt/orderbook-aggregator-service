@@ -1,5 +1,5 @@
 //! # bitstamp
-
+//!
 use futures::sink::SinkExt;
 use futures::stream::StreamExt;
 use rust_decimal::Decimal;
@@ -79,9 +79,8 @@ pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
         let msg = match msg {
             Some(Ok(msg)) => msg,
             Some(Err(err)) => {
-                println!("received error message; closing ws; {:?}", err);
                 let _ = ws_stream.send(websocket_lite::Message::close(None)).await;
-                break Ok(());
+                bail!("received error message; closing ws; {:?}", err)
             }
             None => {
                 break Err(String::from("Stream terminated").into());

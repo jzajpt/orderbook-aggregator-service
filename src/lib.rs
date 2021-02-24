@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate simple_error;
+
 pub mod aggregator;
 pub mod binance;
 pub mod bitstamp;
