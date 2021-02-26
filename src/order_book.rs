@@ -1,6 +1,4 @@
 use rust_decimal::prelude::*;
-use rust_decimal::Decimal;
-use rust_decimal_macros::*;
 use sorted_vec::{ReverseSortedVec, SortedVec};
 use std::cmp::Ordering;
 use std::str::FromStr;
@@ -47,18 +45,25 @@ impl Orderbook {
         Orderbook::from_bids_asks(bids, asks)
     }
 
-    pub fn spread(&self) -> Option<f64> {
-        let bid = self.top_bid().unwrap_or(dec!(0.0));
-        let ask = self.top_ask().unwrap_or(dec!(0.0));
-        (ask - bid).to_f64()
+    pub fn spread(&self) -> Option<Decimal> {
+        match (self.top_bid(), self.top_ask()) {
+            (Some(bid), Some(ask)) => Some(ask - bid),
+            _ => None
+        }
     }
 
-    pub fn top_bid(&self) -> crate::Result<Decimal> {
-        Ok(self.bids.first().unwrap().price)
+    pub fn top_bid(&self) -> Option<Decimal> {
+        match self.bids.first() {
+            Some(bid) => Some(bid.price),
+            None => None,
+        }
     }
 
-    pub fn top_ask(&self) -> crate::Result<Decimal> {
-        Ok(self.asks.first().unwrap().price)
+    pub fn top_ask(&self) -> Option<Decimal> {
+        match self.asks.first() {
+            Some(ask) => Some(ask.price),
+            None => None,
+        }
     }
 }
 
@@ -175,6 +180,7 @@ impl OrderbookUpdateEvent {
 
 #[cfg(test)]
 mod tests {
+    use rust_decimal_macros::*;
     use super::*;
 
     #[test]
@@ -189,6 +195,10 @@ mod tests {
         let top_ask = asks[0];
         assert_eq!(top_ask.price, dec!(0.9));
         assert_eq!(top_ask.size, dec!(10.0));
+
+        let second_ask = asks[1];
+        assert_eq!(second_ask.price, dec!(0.9));
+        assert_eq!(second_ask.size, dec!(0.1));
     }
 
     #[test]
@@ -207,5 +217,41 @@ mod tests {
         let second_bid = bids[1];
         assert_eq!(second_bid.price, dec!(1.1));
         assert_eq!(second_bid.size, dec!(2.0));
+    }
+
+    #[test]
+    fn empty_top_bid() {
+        let orderbook = Orderbook::new();
+        assert_eq!(orderbook.top_bid(), None);
+    }
+
+    #[test]
+    fn top_bid() {
+        let orderbook = Orderbook::from_bids_asks(
+            vec![OrderbookLevel::bid(dec!(1.0), dec!(1.0), Exchange::Unknown)],
+            vec![],
+        );
+        assert!(orderbook.top_bid().is_some());
+    }
+
+    #[test]
+    fn empty_top_ask() {
+        let orderbook = Orderbook::new();
+        assert_eq!(orderbook.top_ask(), None);
+    }
+
+    #[test]
+    fn top_ask() {
+        let orderbook = Orderbook::from_bids_asks(
+            vec![],
+            vec![OrderbookLevel::ask(dec!(1.0), dec!(1.0), Exchange::Unknown)],
+        );
+        assert!(orderbook.top_ask().is_some());
+    }
+
+    #[test]
+    fn empty_spread() {
+        let orderbook = Orderbook::new();
+        assert_eq!(orderbook.spread(), None);
     }
 }

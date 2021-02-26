@@ -8,4 +8,4 @@ RUN cargo install --path .
 
 ENV PAIR=ethbtc
 
-CMD ["aggregator-server"]
+ENTRYPOINT ["entrypoints/entrypoint.sh"]

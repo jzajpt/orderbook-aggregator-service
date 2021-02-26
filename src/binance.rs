@@ -3,7 +3,7 @@ use futures::stream::StreamExt;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use tokio::sync::mpsc::Sender;
-use websocket_lite::{Message, Opcode, Result};
+use websocket_lite::{Message, Opcode};
 
 use crate::order_book::{
     AsksVec, BidsVec, Exchange, Orderbook, OrderbookLevel, OrderbookUpdateEvent,
@@ -43,20 +43,19 @@ impl From<PartialBookEvent> for Orderbook {
 }
 
 /// Run the Binance websocket client.
-pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
+pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> crate::Result<()> {
     let url = format!("{}{}@depth10@100ms", URL, pair);
     let builder = websocket_lite::ClientBuilder::new(&url)?;
     let mut ws_stream = builder.async_connect().await?;
 
     loop {
-        let msg: Option<Result<Message>> = ws_stream.next().await;
+        let msg: Option<crate::Result<Message>> = ws_stream.next().await;
 
         let msg = match msg {
             Some(Ok(msg)) => msg,
             Some(Err(err)) => {
-                println!("received error message; closing ws; {:?}", err);
                 let _ = ws_stream.send(websocket_lite::Message::close(None)).await;
-                break Ok(());
+                bail!("received error message; closing ws; {:?}", err)
             }
             None => {
                 break Err(String::from("Stream terminated").into());
@@ -69,7 +68,7 @@ pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
                 let update: PartialBookEvent = serde_json::from_str(response)?;
                 let orderbook = Orderbook::from(update);
                 let update_event = OrderbookUpdateEvent::new(Exchange::Binance, orderbook);
-                tx.send(update_event).await.unwrap();
+                tx.send(update_event).await?;
             }
             Opcode::Ping => ws_stream.send(Message::pong(msg.into_data())).await?,
             Opcode::Close => {
