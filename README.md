@@ -41,7 +41,7 @@ DigitalOcean:
 
 ```
 grpcurl -plaintext -import-path ./proto -proto orderbook.proto \ 
-161.35.221.121:50051 orderbook.OrderbookAggregator/BookSummary
+  161.35.221.121:50051 orderbook.OrderbookAggregator/BookSummary
 ```
 
 
@@ -72,3 +72,12 @@ Bitstamp websocket API offers live order book endpoint which is streaming top
 - [ ] Connection reset handling
 - [ ] CTRL+C graceful handling
 - [ ] more tests
+
+## Known issues and limitations
+
+* Binance websocket connection is valid only for 24 hours. After that
+  the server gets disconnected and doesn't connect again.
+* Given invalid pair name, the server will not print any warning message
+  and not stream any updates.
+* Updates are streamed even where there's no visible change in the 
+  top 10 bids/asks.

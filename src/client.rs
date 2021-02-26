@@ -1,27 +1,33 @@
-use std::error::Error;
 use std::env;
+use std::error::Error;
 
 use tonic::transport::Channel;
 use tonic::Request;
 
-use orderbook_aggregator::proto::{
-    orderbook_aggregator_client::OrderbookAggregatorClient, Empty,
-};
+use orderbook_aggregator::proto::{orderbook_aggregator_client::OrderbookAggregatorClient, Empty};
 
 async fn print_features(
     client: &mut OrderbookAggregatorClient<Channel>,
 ) -> Result<(), Box<dyn Error>> {
-    let mut stream = client.book_summary(Request::new(Empty {})).await?.into_inner();
+    let mut stream = client
+        .book_summary(Request::new(Empty {}))
+        .await?
+        .into_inner();
 
     while let Some(summary) = stream.message().await? {
-        println!(
-            "spread: {}, bid/ask: {}/{} ({}/{})",
-            summary.spread,
-            summary.bids[0].price,
-            summary.asks[0].price,
-            summary.bids[0].exchange,
-            summary.asks[0].exchange,
-        );
+        match (summary.bids.first(), summary.asks.first()) {
+            (Some(bid), Some(ask)) => {
+                println!(
+                    "spread: {}, bid/ask: {}/{} ({}/{})",
+                    summary.spread,
+                    bid.price,
+                    ask.price,
+                    bid.exchange,
+                    ask.exchange,
+                );
+            }
+            (_, _) => {}
+        }
     }
 
     Ok(())

@@ -14,6 +14,7 @@ use orderbook_aggregator::{
     },
 };
 
+/// gRPC service state.
 pub struct AggregatorService {
     rx: watch::Receiver<Orderbook>,
 }
@@ -59,22 +60,25 @@ async fn connect_exchanges(
     let pair2 = pair.clone();
 
     tokio::spawn(async move {
-        bitstamp::run(&pair2, tx).await.unwrap();
+        bitstamp::run(&pair2, tx).await?;
+        Ok::<(), orderbook_aggregator::Error>(())
     });
 
     tokio::spawn(async move {
-        binance::run(&pair, tx2).await.unwrap();
+        binance::run(&pair, tx2).await?;
+        Ok::<(), orderbook_aggregator::Error>(())
     });
 
     tokio::spawn(async move {
         let mut aggregator = Aggregator::new();
         while let Some(msg) = rx.recv().await {
-            aggregator.push(msg.exchange, msg.orderbook);
+            aggregator.update(msg.exchange, msg.orderbook);
             if aggregator.orderbooks.len() > 1 {
                 let orderbook = aggregator.aggregate();
-                orderbook_tx.send(orderbook).unwrap();
+                orderbook_tx.send(orderbook)?;
             }
         }
+        Ok::<(), orderbook_aggregator::Error>(())
     });
 
     Ok(())

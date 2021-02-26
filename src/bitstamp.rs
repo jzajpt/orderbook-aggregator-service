@@ -6,7 +6,7 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_aux::prelude::*;
 use tokio::sync::mpsc::Sender;
-use websocket_lite::{Message, Opcode, Result};
+use websocket_lite::{Message, Opcode};
 
 use crate::order_book::{
     AsksVec, BidsVec, Exchange, Orderbook, OrderbookLevel, OrderbookUpdateEvent,
@@ -62,8 +62,8 @@ struct Event {
     data: EventData,
 }
 
-/// Run the Bitstamp websocket client.
-pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
+/// Run the Bitstamp websocket client loop.
+pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> crate::Result<()> {
     let builder = websocket_lite::ClientBuilder::new(URL)?;
     let mut ws_stream = builder.async_connect().await?;
 
@@ -74,7 +74,7 @@ pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
     ws_stream.send(Message::text(subscribe_msg)).await?;
 
     loop {
-        let msg: Option<Result<Message>> = ws_stream.next().await;
+        let msg: Option<crate::Result<Message>> = ws_stream.next().await;
 
         let msg = match msg {
             Some(Ok(msg)) => msg,
@@ -95,14 +95,13 @@ pub async fn run(pair: &str, tx: Sender<OrderbookUpdateEvent>) -> Result<()> {
                     EventData::LiveOrderbook(orderbook_data) => {
                         let orderbook = Orderbook::from(orderbook_data);
                         let update_event = OrderbookUpdateEvent::new(Exchange::Bitstamp, orderbook);
-                        tx.send(update_event).await.unwrap();
+                        tx.send(update_event).await?;
                     }
                     _ => {}
                 }
             }
             Opcode::Ping => ws_stream.send(Message::pong(msg.into_data())).await?,
             Opcode::Close => {
-                println!("closed");
                 let _ = ws_stream.send(Message::close(None)).await;
                 break Ok(());
             }
@@ -141,24 +140,4 @@ mod tests {
 
         recv.await.unwrap();
     }
-
-    // This test case asserts that the `run` function given the
-    // invalid pair name will return error.
-    // #[tokio::test]
-    // #[timeout(5000)]
-    // async fn run_returns_error() {
-    //     let (tx, mut rx) = mpsc::channel(2);
-    //     let result = run("xxx", tx).await;
-    //     let mut received = false;
-    //     let recv = tokio::spawn(async move {
-    //         loop {
-    //             if let Some(resp) = rx.recv().await {
-    //                 received = true;
-    //                 break;
-    //             }
-    //         }
-    //     });
-    //     recv.await.unwrap();
-    //     assert_eq!(recieved, true);
-    // }
 }

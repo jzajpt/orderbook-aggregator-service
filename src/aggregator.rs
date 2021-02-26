@@ -2,23 +2,25 @@ use std::collections::HashMap;
 
 use crate::order_book::{Exchange, Orderbook};
 
+/// Number of asks and bids returned by the aggregator.
 const LIMIT: usize = 10;
 
-/// Aggregates n orderbooks
+/// Orderbook aggregator state.
 #[derive(Debug)]
 pub struct Aggregator {
     pub orderbooks: HashMap<Exchange, Orderbook>,
 }
 
 impl Aggregator {
-    /// Create new aggregator
+    /// Create new empty aggregator.
     pub fn new() -> Self {
-        let orderbooks = HashMap::new();
-        Self { orderbooks }
+        Self {
+            orderbooks: HashMap::new(),
+        }
     }
 
-    /// Update orderbook snapshot for given exchange
-    pub fn push(&mut self, exchange: Exchange, orderbook: Orderbook) {
+    /// Update orderbook snapshot for given exchange.
+    pub fn update(&mut self, exchange: Exchange, orderbook: Orderbook) {
         self.orderbooks.insert(exchange, orderbook);
     }
 
@@ -78,8 +80,8 @@ mod tests {
         ];
         let binance_ob = Orderbook::from_bids_asks(bids, asks);
         let mut aggregator = Aggregator::new();
-        aggregator.push(Exchange::Binance, binance_ob);
-        aggregator.push(Exchange::Bitstamp, bitstamp_ob);
+        aggregator.update(Exchange::Binance, binance_ob);
+        aggregator.update(Exchange::Bitstamp, bitstamp_ob);
         let aggregated = aggregator.aggregate();
 
         let top_bid = aggregated.bids.first().unwrap();
